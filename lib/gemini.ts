@@ -1,6 +1,6 @@
 import type { FlowEvent } from './types';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
 
 export interface InsightResult {
   summary: string;
@@ -8,103 +8,63 @@ export interface InsightResult {
   generatedAt: number;
 }
 
-let lastInsightTime = 0;
-let cachedInsight: InsightResult | null = null;
-const INSIGHT_TTL = 25_000; // 25 seconds
+async function callGemini(prompt: string, apiKey: string): Promise<string> {
+  const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+  });
+  if (!res.ok) throw new Error(`Gemini ${res.status}`);
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+}
 
 export async function generateInsight(events: FlowEvent[]): Promise<InsightResult> {
   const now = Date.now();
+  const apiKey = process.env.GEMINI_API_KEY;
 
-  if (cachedInsight && now - lastInsightTime < INSIGHT_TTL) {
-    return cachedInsight;
-  }
-
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here') {
-    const fallback = buildFallbackInsight(events);
-    cachedInsight = fallback;
-    lastInsightTime = now;
-    return fallback;
+  if (!apiKey || events.length === 0) {
+    return buildFallbackInsight(events);
   }
 
   try {
-    const { GoogleGenerativeAI } = await import('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-    const recentEvents = events.slice(0, 15);
-    const eventSummary = recentEvents
-      .map(
-        (e) =>
-          `[${e.type.toUpperCase()}] ${e.market}: ${e.description} (t=${new Date(e.timestamp).toISOString()})`
-      )
+    const summary = events
+      .slice(0, 12)
+      .map(e => `[${e.type.toUpperCase()}] ${e.market}: ${e.description}`)
       .join('\n');
 
-    const prompt = `You are a quantitative market analyst for Polymarket, a prediction market platform.
-Analyze these recent flow events and provide a brief, precise intelligence summary.
+    const prompt = `You are a quantitative Polymarket analyst. Analyze these flow signals and respond ONLY with valid JSON: {"summary":"...","unusual":"..." or null}
+- summary: 1-2 sentences on capital movement and dominant direction. Be specific.
+- unusual: 1 sentence if something stands out, else null.
 
-RECENT FLOW EVENTS:
-${eventSummary || 'No significant events in last interval.'}
+SIGNALS:
+${summary}`;
 
-Rules:
-- Respond ONLY with valid JSON in this exact format: {"summary": "...", "unusual": "..." or null}
-- summary: 1-2 sentences. Describe capital movement patterns, market momentum, and dominant flow direction. Be specific about markets and amounts.
-- unusual: 1 sentence if something stands out (size, speed, concentration). null if nothing unusual.
-- No generic phrases. No hedging. Specific, actionable language only.
-- Do not invent numbers not in the data.`;
-
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
-
-    // Extract JSON from potential markdown code blocks
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('No JSON in response');
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    const insight: InsightResult = {
+    const text = await callGemini(prompt, apiKey);
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('No JSON');
+    const parsed = JSON.parse(match[0]);
+    return {
       summary: parsed.summary || buildFallbackInsight(events).summary,
       unusual: parsed.unusual || null,
       generatedAt: now,
     };
-
-    cachedInsight = insight;
-    lastInsightTime = now;
-    return insight;
   } catch (err) {
-    console.error('[gemini] insight generation failed:', err);
-    const fallback = buildFallbackInsight(events);
-    cachedInsight = fallback;
-    lastInsightTime = now;
-    return fallback;
+    console.error('[gemini] insight error:', err);
+    return buildFallbackInsight(events);
   }
 }
 
 function buildFallbackInsight(events: FlowEvent[]): InsightResult {
+  const now = Date.now();
   if (events.length === 0) {
-    return {
-      summary: 'Monitoring market flow. No significant events detected in the current window.',
-      unusual: null,
-      generatedAt: Date.now(),
-    };
+    return { summary: 'Monitoring market flow. No significant events in current window.', unusual: null, generatedAt: now };
   }
-
-  const largeTrades = events.filter((e) => e.type === 'large_trade');
-  const spikes = events.filter((e) => e.type === 'volume_spike');
-  const momentum = events.filter((e) => e.type === 'momentum');
-
-  const topMarkets = Array.from(new Set(events.map((e) => e.market))).slice(0, 2);
-  const totalLargeFlow = largeTrades.reduce((s, e) => s + e.magnitude, 0);
-
-  let summary = `Flow activity detected across ${topMarkets.length} market${topMarkets.length !== 1 ? 's' : ''}.`;
-  if (largeTrades.length > 0 && totalLargeFlow > 0) {
-    summary += ` $${totalLargeFlow > 1000 ? (totalLargeFlow / 1000).toFixed(1) + 'k' : totalLargeFlow.toFixed(0)} in large trades logged.`;
-  }
-
-  let unusual: string | null = null;
-  if (spikes.length >= 2) {
-    unusual = `Volume spike pattern detected in ${spikes.length} markets simultaneously — possible coordinated flow.`;
-  } else if (momentum.length >= 2) {
-    unusual = `Rapid price movement in ${momentum.length} markets — momentum building across segments.`;
-  }
-
-  return { summary, unusual, generatedAt: Date.now() };
+  const markets = [...new Set(events.map(e => e.market))].slice(0, 2);
+  const spikes = events.filter(e => e.type === 'volume_spike').length;
+  const momentum = events.filter(e => e.type === 'momentum').length;
+  let summary = `Flow signals detected across ${markets.length} market${markets.length !== 1 ? 's' : ''}.`;
+  if (spikes > 0) summary += ` ${spikes} volume spike${spikes > 1 ? 's' : ''} detected.`;
+  const unusual = momentum >= 2 ? `Rapid price movement in ${momentum} markets — momentum building.` : null;
+  return { summary, unusual, generatedAt: now };
 }
