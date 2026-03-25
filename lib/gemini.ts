@@ -1,10 +1,36 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { FlowEvent } from './types';
 
 export interface InsightResult {
   summary: string;
   unusual: string | null;
   generatedAt: number;
+}
+
+// Pure REST API call to bypass the SDK issues on Vercel
+async function callGeminiREST(prompt: string, apiKey: string) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`;
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 256 }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Google API ${response.status}: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  
+  if (!reply) {
+    throw new Error('Empty response from Gemini');
+  }
+  return reply;
 }
 
 export async function generateInsight(events: FlowEvent[]): Promise<InsightResult> {
@@ -16,9 +42,6 @@ export async function generateInsight(events: FlowEvent[]): Promise<InsightResul
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
     const summary = events
       .slice(0, 12)
       .map(e => `[${e.type.toUpperCase()}] ${e.market}: ${e.description}`)
@@ -31,8 +54,8 @@ export async function generateInsight(events: FlowEvent[]): Promise<InsightResul
 SIGNALS:
 ${summary}`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
+    const text = await callGeminiREST(prompt, apiKey);
+    
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('No JSON in response');
     const parsed = JSON.parse(match[0]);

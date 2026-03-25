@@ -1,9 +1,35 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchActiveMarkets } from '@/lib/clob';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
+
+// Pure REST API call to bypass the buggy SDK on Vercel
+async function callGeminiREST(prompt: string, apiKey: string) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`;
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.7, maxOutputTokens: 256 }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Google API ${response.status}: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  
+  if (!reply) {
+    throw new Error('Empty response from Gemini');
+  }
+  return reply;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,15 +68,13 @@ Answer the user's question concisely (2-4 sentences max). Be specific and refere
 User: ${message}
 Answer:`;
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    const result = await model.generateContent(prompt);
-    const reply = result.response.text().trim();
-
-    return NextResponse.json({ reply: reply || 'No response.' });
+    const reply = await callGeminiREST(prompt, apiKey);
+    return NextResponse.json({ reply: reply.trim() });
+    
   } catch (err) {
     console.error('[/api/chat]', err);
-    const msg = err instanceof Error ? err.message.slice(0, 120) : 'unknown error';
-    return NextResponse.json({ reply: `AI error: ${msg}` });
+    // Return the exact error to the UI so we can debug if it fails again
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ reply: `AI error: ${msg.slice(0, 200)}` });
   }
 }
