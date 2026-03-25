@@ -105,6 +105,7 @@ function Topbar({ eventCount, marketCount }: { eventCount: number; marketCount: 
       </div>
       <div className="topbar-right">
         <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--text-muted)', textDecoration: 'none' }}>𝕏</a>
+        <a href="https://github.com/polyrider/polyriver" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--text-muted)', textDecoration: 'none', marginLeft: 10 }}>GITHUB</a>
         <span className="live-dot">LIVE</span>
         <span className="topbar-time">{time}</span>
       </div>

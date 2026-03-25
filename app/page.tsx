@@ -555,6 +555,7 @@ export default function LandingPage() {
           <div className="landing-nav-right" style={{ display:'flex', alignItems:'center', gap:16 }}>
             <Link href="/about" className="nav-text-link">About</Link>
             <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" className="nav-text-link">X (Twitter)</a>
+            <a href="https://github.com/polyrider/polyriver" target="_blank" rel="noopener noreferrer" className="nav-text-link">GitHub</a>
             <Link href="/terminal" className="nav-launch-btn">Open Terminal →</Link>
           </div>
         </nav>
@@ -718,6 +719,7 @@ export default function LandingPage() {
           <div style={{ display:'flex', alignItems:'center', gap:20 }}>
             <Link href="/about" className="footer-poly">About</Link>
             <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" className="footer-poly">X (Twitter)</a>
+            <a href="https://github.com/polyrider/polyriver" target="_blank" rel="noopener noreferrer" className="footer-poly">GitHub</a>
             <a href="https://docs.polymarket.com/builders/overview" target="_blank" rel="noopener noreferrer" className="footer-poly">Built on Polymarket</a>
           </div>
         </footer>

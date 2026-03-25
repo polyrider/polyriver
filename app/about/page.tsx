@@ -282,6 +282,7 @@ export default function AboutPage() {
           </a>
           <div className="about-nav-links">
             <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" className="about-nav-link">X (Twitter)</a>
+            <a href="https://github.com/polyrider/polyriver" target="_blank" rel="noopener noreferrer" className="about-nav-link">GitHub</a>
             <Link href="/" className="about-nav-link">Home</Link>
             <Link href="/terminal" className="about-nav-cta">Open Terminal →</Link>
           </div>
@@ -480,6 +481,7 @@ export default function AboutPage() {
           <span className="about-footer-copy">© 2025 PolyRiver</span>
           <div style={{ display:'flex', gap:20 }}>
             <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" className="about-footer-link">X (Twitter)</a>
+            <a href="https://github.com/polyrider/polyriver" target="_blank" rel="noopener noreferrer" className="about-footer-link">GitHub</a>
             <Link href="/" className="about-footer-link">Home</Link>
             <a href="https://docs.polymarket.com/builders/overview" target="_blank" rel="noopener noreferrer" className="about-footer-link">Built on Polymarket</a>
           </div>

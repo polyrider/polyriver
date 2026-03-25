@@ -8,7 +8,7 @@ export interface InsightResult {
 
 // Pure REST API call to bypass the SDK issues on Vercel
 async function callGeminiREST(prompt: string, apiKey: string) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`;
   
   const response = await fetch(url, {
     method: 'POST',
