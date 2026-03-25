@@ -4,7 +4,7 @@ import { fetchActiveMarkets } from '@/lib/clob';
 export const dynamic = 'force-dynamic';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent`;
 
 async function callGemini(prompt: string): Promise<string> {
   if (!GEMINI_API_KEY) throw new Error('No API key');

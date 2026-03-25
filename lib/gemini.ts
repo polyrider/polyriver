@@ -1,6 +1,6 @@
 import type { FlowEvent } from './types';
 
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent`;
 
 export interface InsightResult {
   summary: string;
