@@ -1,22 +1,10 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { FlowEvent } from './types';
-
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent`;
 
 export interface InsightResult {
   summary: string;
   unusual: string | null;
   generatedAt: number;
-}
-
-async function callGemini(prompt: string, apiKey: string): Promise<string> {
-  const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-  });
-  if (!res.ok) throw new Error(`Gemini ${res.status}`);
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
 export async function generateInsight(events: FlowEvent[]): Promise<InsightResult> {
@@ -28,6 +16,9 @@ export async function generateInsight(events: FlowEvent[]): Promise<InsightResul
   }
 
   try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
     const summary = events
       .slice(0, 12)
       .map(e => `[${e.type.toUpperCase()}] ${e.market}: ${e.description}`)
@@ -40,10 +31,12 @@ export async function generateInsight(events: FlowEvent[]): Promise<InsightResul
 SIGNALS:
 ${summary}`;
 
-    const text = await callGemini(prompt, apiKey);
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
     const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('No JSON');
+    if (!match) throw new Error('No JSON in response');
     const parsed = JSON.parse(match[0]);
+
     return {
       summary: parsed.summary || buildFallbackInsight(events).summary,
       unusual: parsed.unusual || null,
@@ -58,7 +51,7 @@ ${summary}`;
 function buildFallbackInsight(events: FlowEvent[]): InsightResult {
   const now = Date.now();
   if (events.length === 0) {
-    return { summary: 'Monitoring market flow. No significant events in current window.', unusual: null, generatedAt: now };
+    return { summary: 'Monitoring market flow. Scanning for significant signals.', unusual: null, generatedAt: now };
   }
   const markets = [...new Set(events.map(e => e.market))].slice(0, 2);
   const spikes = events.filter(e => e.type === 'volume_spike').length;

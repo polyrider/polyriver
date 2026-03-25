@@ -1,31 +1,19 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchActiveMarkets } from '@/lib/clob';
 
 export const dynamic = 'force-dynamic';
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent`;
-
-async function callGemini(prompt: string): Promise<string> {
-  if (!GEMINI_API_KEY) throw new Error('No API key');
-  const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Gemini error ${res.status}: ${err}`);
-  }
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-}
 
 export async function POST(req: NextRequest) {
   try {
     const { message } = await req.json();
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ reply: 'Please send a message.' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ reply: 'AI not configured. Add GEMINI_API_KEY to Vercel environment variables.' });
     }
 
     // Build live market context
@@ -53,17 +41,15 @@ Answer the user's question concisely (2-4 sentences max). Be specific and refere
 User: ${message}
 Answer:`;
 
-    const reply = await callGemini(prompt);
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const result = await model.generateContent(prompt);
+    const reply = result.response.text().trim();
 
-    if (!reply) {
-      return NextResponse.json({ reply: 'No response from AI. Try again.' });
-    }
-
-    return NextResponse.json({ reply: reply.trim() });
+    return NextResponse.json({ reply: reply || 'No response.' });
   } catch (err) {
     console.error('[/api/chat]', err);
-    return NextResponse.json({
-      reply: `AI temporarily unavailable. Error: ${err instanceof Error ? err.message.slice(0, 80) : 'unknown'}`,
-    });
+    const msg = err instanceof Error ? err.message.slice(0, 120) : 'unknown error';
+    return NextResponse.json({ reply: `AI error: ${msg}` });
   }
 }
