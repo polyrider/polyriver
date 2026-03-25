@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Image from 'next/image';
 import type { FlowEvent, MarketWithScore } from '@/lib/types';
 
 function relativeTime(ts: number): string {
@@ -46,54 +45,32 @@ function MarketDetailPanel({ market, onClose }: { market: MarketWithScore; onClo
         </div>
         <div className="detail-body">
           <div className="detail-prices">
-            <div className="price-box yes">
-              <div className="price-box-label">YES</div>
-              <div className="price-box-value">{(yesPrice * 100).toFixed(1)}¢</div>
-            </div>
-            <div className="price-box no">
-              <div className="price-box-label">NO</div>
-              <div className="price-box-value">{(noPrice * 100).toFixed(1)}¢</div>
-            </div>
+            <div className="price-box yes"><div className="price-box-label">YES</div><div className="price-box-value">{(yesPrice * 100).toFixed(1)}¢</div></div>
+            <div className="price-box no"><div className="price-box-label">NO</div><div className="price-box-value">{(noPrice * 100).toFixed(1)}¢</div></div>
           </div>
           <div className="detail-meta">
-            <div className="detail-meta-item">
-              <span className="detail-meta-label">24h Volume</span>
-              <span className="detail-meta-value">{formatVol(market.volume24hr || 0)}</span>
-            </div>
-            <div className="detail-meta-item">
-              <span className="detail-meta-label">Liquidity</span>
-              <span className="detail-meta-value">{formatVol(market.liquidity || 0)}</span>
-            </div>
-            <div className="detail-meta-item">
-              <span className="detail-meta-label">Flow Score</span>
-              <span className="detail-meta-value" style={{ color: 'var(--accent-yellow)' }}>{market.flow_score}</span>
-            </div>
+            <div className="detail-meta-item"><span className="detail-meta-label">24h Volume</span><span className="detail-meta-value">{formatVol(market.volume24hr || 0)}</span></div>
+            <div className="detail-meta-item"><span className="detail-meta-label">Liquidity</span><span className="detail-meta-value">{formatVol(market.liquidity || 0)}</span></div>
+            <div className="detail-meta-item"><span className="detail-meta-label">Flow Score</span><span className="detail-meta-value" style={{ color: 'var(--accent-yellow)' }}>{market.flow_score}</span></div>
           </div>
           {orderbook && (orderbook.bids?.length > 0 || orderbook.asks?.length > 0) && (
             <div className="orderbook-mini" style={{ marginBottom: 14 }}>
               <div className="orderbook-side">
                 <div className="orderbook-side-label">Bids</div>
                 {(orderbook.bids || []).slice(0, 5).map((b, i) => (
-                  <div key={i} className="ob-row bid">
-                    <span className="ob-price">{parseFloat(b.price).toFixed(3)}</span>
-                    <span className="ob-size">{parseFloat(b.size).toFixed(0)}</span>
-                  </div>
+                  <div key={i} className="ob-row bid"><span className="ob-price">{parseFloat(b.price).toFixed(3)}</span><span className="ob-size">{parseFloat(b.size).toFixed(0)}</span></div>
                 ))}
               </div>
               <div className="orderbook-side">
                 <div className="orderbook-side-label">Asks</div>
                 {(orderbook.asks || []).slice(0, 5).map((a, i) => (
-                  <div key={i} className="ob-row ask">
-                    <span className="ob-price">{parseFloat(a.price).toFixed(3)}</span>
-                    <span className="ob-size">{parseFloat(a.size).toFixed(0)}</span>
-                  </div>
+                  <div key={i} className="ob-row ask"><span className="ob-price">{parseFloat(a.price).toFixed(3)}</span><span className="ob-size">{parseFloat(a.size).toFixed(0)}</span></div>
                 ))}
               </div>
             </div>
           )}
           <a href={polyUrl} target="_blank" rel="noopener noreferrer" className="trade-button">
-            Trade on Polymarket
-            <span className="trade-button-arrow">→</span>
+            Trade on Polymarket<span className="trade-button-arrow">→</span>
           </a>
         </div>
       </div>
@@ -136,16 +113,15 @@ function Topbar({ eventCount, marketCount }: { eventCount: number; marketCount: 
   return (
     <div className="terminal-topbar">
       <div className="topbar-left">
-        <a href="/" style={{ textDecoration:'none', display:'flex', alignItems:'center', gap:7 }}>
-          <Image src="/logo.png" alt="PolyRiver" width={20} height={20} style={{ borderRadius:3 }} />
-          <span className="topbar-brand">PolyRiver</span>
+        <a href="/" style={{ textDecoration: 'none' }}>
+          <span className="topbar-brand">POLYRIVER</span>
         </a>
         <div className="topbar-sep" />
         <div className="topbar-stat"><span className="topbar-stat-label">Events</span><span className="topbar-stat-value">{eventCount}</span></div>
         <div className="topbar-stat"><span className="topbar-stat-label">Markets</span><span className="topbar-stat-value">{marketCount}</span></div>
       </div>
       <div className="topbar-right">
-        <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" style={{ fontSize:10, color:'var(--text-muted)', textDecoration:'none', letterSpacing:'0.04em' }}>X</a>
+        <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: 'var(--text-muted)', textDecoration: 'none', letterSpacing: '0.04em' }}>𝕏</a>
         <span className="live-dot">LIVE</span>
         <span className="topbar-time">{time}</span>
       </div>
@@ -161,9 +137,12 @@ function ageClass(index: number): string {
   return 'aged-4';
 }
 
-function FlowFeed({ events }: { events: FlowEvent[] }) {
+function FlowFeed({ events, loading }: { events: FlowEvent[]; loading: boolean }) {
+  if (loading && events.length === 0) {
+    return <div className="state-loading"><div className="spinner" />Scanning Polymarket flow...</div>;
+  }
   if (events.length === 0) {
-    return <div className="state-loading"><div className="spinner" />Connecting to flow stream...</div>;
+    return <div className="state-loading"><div className="spinner" />Waiting for signals above threshold...</div>;
   }
   return (
     <div className="flow-list">
@@ -243,13 +222,18 @@ function AIInsightPanel() {
 export default function TerminalPage() {
   const [events, setEvents] = useState<FlowEvent[]>([]);
   const [markets, setMarkets] = useState<MarketWithScore[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedMarket, setSelectedMarket] = useState<MarketWithScore | null>(null);
   const seenIds = useRef(new Set<string>());
 
+  // ── Markets (30s refresh) ────────────────────────────────────
   const loadMarkets = useCallback((filter: string) => {
     const tag = filter === 'all' ? '' : `&tag=${filter}`;
-    fetch(`/api/markets?limit=30${tag}`).then(r => r.ok ? r.json() : []).then(data => Array.isArray(data) && setMarkets(data)).catch(() => {});
+    fetch(`/api/markets?limit=30${tag}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => Array.isArray(data) && setMarkets(data))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -258,26 +242,27 @@ export default function TerminalPage() {
     return () => clearInterval(t);
   }, [activeFilter, loadMarkets]);
 
-  useEffect(() => {
-    let es: EventSource;
-    let retryTimer: NodeJS.Timeout;
-    const connect = () => {
-      es = new EventSource('/api/flow');
-      es.onmessage = (e) => {
-        try {
-          const msg = JSON.parse(e.data);
-          const incoming: FlowEvent[] = msg.events || [];
-          const fresh = incoming.filter(ev => !seenIds.current.has(ev.id));
-          if (fresh.length === 0) return;
-          fresh.forEach(ev => seenIds.current.add(ev.id));
-          setEvents(prev => [...fresh, ...prev].slice(0, 50));
-        } catch {}
-      };
-      es.onerror = () => { es.close(); retryTimer = setTimeout(connect, 3000); };
-    };
-    connect();
-    return () => { es?.close(); clearTimeout(retryTimer); };
+  // ── Flow polling (every 4s) — stateless, works on Vercel ────
+  const pollFlow = useCallback(() => {
+    fetch('/api/flow')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        setLoading(false);
+        const incoming: FlowEvent[] = data.events || [];
+        const fresh = incoming.filter(ev => !seenIds.current.has(ev.id));
+        if (fresh.length === 0) return;
+        fresh.forEach(ev => seenIds.current.add(ev.id));
+        setEvents(prev => [...fresh, ...prev].slice(0, 50));
+      })
+      .catch(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    pollFlow();
+    const t = setInterval(pollFlow, 4_000);
+    return () => clearInterval(t);
+  }, [pollFlow]);
 
   return (
     <div className="terminal-shell">
@@ -292,7 +277,7 @@ export default function TerminalPage() {
             <span className="panel-header-label">Live Flow Feed</span>
             <span className="panel-header-badge">{events.length} events</span>
           </div>
-          <div className="panel-section"><FlowFeed events={events} /></div>
+          <div className="panel-section"><FlowFeed events={events} loading={loading} /></div>
         </div>
         <div className="panel-right">
           <div className="right-momentum">

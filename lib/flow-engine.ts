@@ -1,110 +1,49 @@
-import type { FlowEvent, Trade, Market, FlowEventType } from './types';
+import type { FlowEvent, Trade } from './types';
 
 function randomId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// In-memory circular buffer of recent flow events
-const MAX_EVENTS = 200;
-const eventBuffer: FlowEvent[] = [];
-
-// Track recently seen trade IDs to avoid duplicates
-const seenTradeIds = new Set<string>();
-const LARGE_TRADE_THRESHOLD = Number(process.env.LARGE_TRADE_THRESHOLD || 500);
-
-// Volume tracking per market for spike detection
-interface VolumeWindow {
-  tokenId: string;
-  buckets: number[]; // 30s buckets, last 10 = 5 minutes
-  lastFlush: number;
-}
-const volumeWindows = new Map<string, VolumeWindow>();
-
-function getVolumeWindow(tokenId: string): VolumeWindow {
-  if (!volumeWindows.has(tokenId)) {
-    volumeWindows.set(tokenId, {
-      tokenId,
-      buckets: Array(10).fill(0),
-      lastFlush: Date.now(),
-    });
-  }
-  return volumeWindows.get(tokenId)!;
+function formatMagnitude(value: number): string {
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return value.toFixed(0);
 }
 
-function updateVolumeWindow(tokenId: string, tradeSize: number): { isSpike: boolean; ratio: number } {
-  const win = getVolumeWindow(tokenId);
-  const now = Date.now();
-  const elapsed = now - win.lastFlush;
+// Volume tracking per market (stateless-friendly: resets per request, which is fine for spike detection relative to this batch)
+const volumeAccum = new Map<string, number>();
 
-  // Advance buckets if 30s has passed
-  const bucketsToAdvance = Math.min(10, Math.floor(elapsed / 30_000));
-  if (bucketsToAdvance > 0) {
-    win.buckets = [
-      ...Array(bucketsToAdvance).fill(0),
-      ...win.buckets.slice(0, 10 - bucketsToAdvance),
-    ];
-    win.lastFlush = now;
-  }
-
-  win.buckets[0] += tradeSize;
-
-  const currentBucket = win.buckets[0];
-  const historicalAvg =
-    win.buckets.slice(1).reduce((a, b) => a + b, 0) / Math.max(1, win.buckets.slice(1).filter(Boolean).length);
-
-  const ratio = historicalAvg > 0 ? currentBucket / historicalAvg : 1;
-  return { isSpike: ratio >= 3 && currentBucket > 100, ratio };
-}
-
-// Price tracking for momentum detection
-const priceHistory = new Map<string, { price: number; time: number }[]>();
-
-function recordPrice(tokenId: string, price: number): { isMomentum: boolean; velocity: number } {
-  if (!priceHistory.has(tokenId)) priceHistory.set(tokenId, []);
-  const hist = priceHistory.get(tokenId)!;
-  hist.push({ price, time: Date.now() });
-  // Keep last 60 records
-  if (hist.length > 60) hist.shift();
-
-  if (hist.length < 5) return { isMomentum: false, velocity: 0 };
-
-  const oldest = hist[Math.max(0, hist.length - 10)];
-  const newest = hist[hist.length - 1];
-  const timeDelta = (newest.time - oldest.time) / 1000; // seconds
-  const priceDelta = Math.abs(newest.price - oldest.price);
-  const velocity = timeDelta > 0 ? priceDelta / timeDelta : 0;
-
-  return { isMomentum: priceDelta >= 0.03 && velocity > 0.001, velocity };
-}
+// Price history for momentum
+const priceHistory = new Map<string, number[]>();
 
 export function processTradesIntoEvents(
   trades: Trade[],
-  market: Market
+  marketQuestion: string,
+  threshold: number
 ): FlowEvent[] {
   const events: FlowEvent[] = [];
+  const seenInBatch = new Set<string>();
 
   for (const trade of trades) {
     const tradeKey = trade.id || `${trade.match_time}_${trade.price}_${trade.size}`;
-    if (seenTradeIds.has(tradeKey)) continue;
-    seenTradeIds.add(tradeKey);
-    if (seenTradeIds.size > 10000) {
-      const first = seenTradeIds.values().next().value;
-      if (first) seenTradeIds.delete(first);
-    }
+    if (seenInBatch.has(tradeKey)) continue;
+    seenInBatch.add(tradeKey);
 
     const size = parseFloat(trade.size || '0');
     const price = parseFloat(trade.price || '0');
+    if (isNaN(size) || isNaN(price) || size <= 0 || price <= 0) continue;
+
     const usdValue = size * price;
     const side = trade.side === 'BUY' ? 'YES' : 'NO';
+    const tokenId = trade.asset_id || '';
 
-    // Large trade detection
-    if (usdValue >= LARGE_TRADE_THRESHOLD) {
+    // ── Large trade ──────────────────────────────────────────────
+    if (usdValue >= threshold) {
       events.push({
         id: `${tradeKey}_large`,
         type: 'large_trade',
-        market: market.question || market.slug,
-        marketSlug: market.slug,
-        tokenId: trade.asset_id,
+        market: marketQuestion,
+        marketSlug: '',
+        tokenId,
         description: `${side} $${formatMagnitude(usdValue)} at ${(price * 100).toFixed(1)}¢`,
         magnitude: usdValue,
         price,
@@ -114,46 +53,47 @@ export function processTradesIntoEvents(
       });
     }
 
-    // Volume spike detection
-    const { isSpike, ratio } = updateVolumeWindow(trade.asset_id, usdValue);
-    if (isSpike) {
-      const existing = events.find(
-        (e) => e.type === 'volume_spike' && e.tokenId === trade.asset_id
-      );
-      if (!existing) {
-        events.push({
-          id: `${trade.asset_id}_spike_${Date.now()}`,
-          type: 'volume_spike',
-          market: market.question || market.slug,
-          marketSlug: market.slug,
-          tokenId: trade.asset_id,
-          description: `Volume spike ${ratio.toFixed(1)}x above average`,
-          magnitude: ratio,
-          price,
-          side,
-          timestamp: Date.now(),
-        });
-      }
+    // ── Volume accumulation (relative spike in this batch) ────────
+    const prev = volumeAccum.get(tokenId) || 0;
+    volumeAccum.set(tokenId, prev + usdValue);
+    const total = volumeAccum.get(tokenId)!;
+    if (total >= threshold * 5 && !events.find(e => e.type === 'volume_spike' && e.tokenId === tokenId)) {
+      events.push({
+        id: `${randomId()}_spike`,
+        type: 'volume_spike',
+        market: marketQuestion,
+        marketSlug: '',
+        tokenId,
+        description: `Volume burst $${formatMagnitude(total)} across recent trades`,
+        magnitude: total,
+        price,
+        side,
+        timestamp: Date.now(),
+      });
     }
 
-    // Momentum detection
-    const { isMomentum, velocity } = recordPrice(trade.asset_id, price);
-    if (isMomentum) {
-      const existing = events.find(
-        (e) => e.type === 'momentum' && e.tokenId === trade.asset_id
-      );
-      if (!existing) {
-        const direction = price > 0.5 ? 'YES' : 'NO';
+    // ── Momentum (price velocity in this batch) ───────────────────
+    if (!priceHistory.has(tokenId)) priceHistory.set(tokenId, []);
+    const hist = priceHistory.get(tokenId)!;
+    hist.push(price);
+    if (hist.length > 20) hist.shift();
+
+    if (hist.length >= 5) {
+      const oldest = hist[0];
+      const newest = hist[hist.length - 1];
+      const delta = Math.abs(newest - oldest);
+      if (delta >= 0.03 && !events.find(e => e.type === 'momentum' && e.tokenId === tokenId)) {
+        const dir = newest > oldest ? 'YES' : 'NO';
         events.push({
-          id: `${trade.asset_id}_momentum_${Date.now()}`,
+          id: `${randomId()}_momentum`,
           type: 'momentum',
-          market: market.question || market.slug,
-          marketSlug: market.slug,
-          tokenId: trade.asset_id,
-          description: `Rapid ${direction} price movement (+${(velocity * 1000).toFixed(2)}/s)`,
-          magnitude: velocity,
+          market: marketQuestion,
+          marketSlug: '',
+          tokenId,
+          description: `${dir} price moved ${(delta * 100).toFixed(1)}¢ across recent trades`,
+          magnitude: delta,
           price,
-          side: direction,
+          side: dir,
           timestamp: Date.now(),
         });
       }
@@ -161,22 +101,4 @@ export function processTradesIntoEvents(
   }
 
   return events;
-}
-
-export function pushEvents(events: FlowEvent[]) {
-  for (const e of events) {
-    eventBuffer.unshift(e);
-  }
-  if (eventBuffer.length > MAX_EVENTS) {
-    eventBuffer.splice(MAX_EVENTS);
-  }
-}
-
-export function getRecentEvents(limit = 20): FlowEvent[] {
-  return eventBuffer.slice(0, limit);
-}
-
-function formatMagnitude(value: number): string {
-  if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-  return value.toFixed(0);
 }

@@ -1,95 +1,58 @@
+import { NextResponse } from 'next/server';
 import { fetchActiveMarkets, fetchRecentTrades } from '@/lib/clob';
-import { processTradesIntoEvents, pushEvents, getRecentEvents } from '@/lib/flow-engine';
+import { processTradesIntoEvents } from '@/lib/flow-engine';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-// Global polling state (shared across SSE connections in same server process)
-let pollingTimer: NodeJS.Timeout | null = null;
-let connectedClients = 0;
-
-function startPolling() {
-  if (pollingTimer) return;
-  pollingTimer = setInterval(async () => {
-    try {
-      const markets = await fetchActiveMarkets(20);
-      for (const market of markets.slice(0, 10)) {
-        const tokens = market.tokens || [];
-        for (const token of tokens.slice(0, 1)) {
-          const trades = await fetchRecentTrades(token.token_id);
-          const events = processTradesIntoEvents(trades, market);
-          if (events.length > 0) {
-            pushEvents(events);
-          }
-        }
-      }
-    } catch (err) {
-      console.error('[flow-poller]', err);
-    }
-  }, 4000);
-}
-
-function stopPolling() {
-  if (connectedClients <= 0 && pollingTimer) {
-    clearInterval(pollingTimer);
-    pollingTimer = null;
-  }
-}
-
+// Stateless polling endpoint — works on Vercel serverless
+// Client polls this every 3s and gets fresh events each time
 export async function GET() {
-  const encoder = new TextEncoder();
+  try {
+    const THRESHOLD = Number(process.env.LARGE_TRADE_THRESHOLD || 50);
+    const markets = await fetchActiveMarkets(20);
 
-  const stream = new ReadableStream({
-    start(controller) {
-      connectedClients++;
-      startPolling();
+    if (!markets || markets.length === 0) {
+      return NextResponse.json({ events: [], markets: 0 });
+    }
 
-      // Send initial batch of buffered events
-      const initial = getRecentEvents(20);
-      if (initial.length > 0) {
-        const data = `data: ${JSON.stringify({ type: 'batch', events: initial })}\n\n`;
-        controller.enqueue(encoder.encode(data));
-      } else {
-        // Send heartbeat to confirm connection
-        controller.enqueue(encoder.encode(`: connected\n\n`));
-      }
+    // Pick top 8 markets by volume and fetch trades for each
+    const topMarkets = markets
+      .sort((a: { volume24hr?: number }, b: { volume24hr?: number }) =>
+        (b.volume24hr || 0) - (a.volume24hr || 0))
+      .slice(0, 8);
 
-      // Push new events every 2s
-      const pushInterval = setInterval(() => {
+    const allEvents: ReturnType<typeof processTradesIntoEvents>[0][] = [];
+
+    await Promise.allSettled(
+      topMarkets.map(async (market: { question?: string; tokens?: { token_id: string; outcome: string }[] }) => {
+        const token = market.tokens?.[0];
+        if (!token) return;
         try {
-          const events = getRecentEvents(5);
-          const msg = `data: ${JSON.stringify({ type: 'update', events })}\n\n`;
-          controller.enqueue(encoder.encode(msg));
+          const trades = await fetchRecentTrades(token.token_id);
+          if (!trades || trades.length === 0) return;
+          const events = processTradesIntoEvents(
+            trades,
+            market.question || 'Unknown Market',
+            THRESHOLD
+          );
+          allEvents.push(...events);
         } catch {
-          clearInterval(pushInterval);
-          controller.close();
+          // Skip failed markets silently
         }
-      }, 2000);
+      })
+    );
 
-      // Heartbeat to keep connection alive
-      const heartbeat = setInterval(() => {
-        try {
-          controller.enqueue(encoder.encode(`: ping\n\n`));
-        } catch {
-          clearInterval(heartbeat);
-        }
-      }, 15000);
+    // Sort by timestamp descending, return newest 30
+    allEvents.sort((a, b) => b.timestamp - a.timestamp);
 
-      return () => {
-        clearInterval(pushInterval);
-        clearInterval(heartbeat);
-        connectedClients = Math.max(0, connectedClients - 1);
-        stopPolling();
-      };
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    },
-  });
+    return NextResponse.json({
+      events: allEvents.slice(0, 30),
+      markets: markets.length,
+      ts: Date.now(),
+    });
+  } catch (err) {
+    console.error('[/api/flow]', err);
+    return NextResponse.json({ events: [], markets: 0, error: 'fetch failed' });
+  }
 }

@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -551,8 +550,7 @@ export default function LandingPage() {
         {/* Nav */}
         <nav className="landing-nav">
           <a href="/" className="landing-logo">
-            <Image src="/logo.png" alt="PolyRiver" width={32} height={32} style={{ borderRadius: 4 }} />
-            <span className="landing-logo-name">PolyRiver</span>
+            <span className="landing-logo-name">POLYRIVER</span>
           </a>
           <div className="landing-nav-right" style={{ display:'flex', alignItems:'center', gap:16 }}>
             <Link href="/about" className="nav-text-link">About</Link>
@@ -715,8 +713,7 @@ export default function LandingPage() {
         {/* Footer */}
         <footer className="landing-footer">
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <Image src="/logo.png" alt="PolyRiver" width={20} height={20} style={{ borderRadius:3, opacity:0.6 }} />
-            <span className="footer-copy">© 2025 PolyRiver</span>
+            <span className="footer-copy">© 2025 POLYRIVER</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:20 }}>
             <Link href="/about" className="footer-poly">About</Link>

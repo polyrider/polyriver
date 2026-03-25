@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -279,8 +278,7 @@ export default function AboutPage() {
         {/* Nav */}
         <nav className="about-nav">
           <a href="/" className="about-logo">
-            <Image src="/logo.png" alt="PolyRiver" width={28} height={28} style={{ borderRadius: 4 }} />
-            <span className="about-logo-name">PolyRiver</span>
+            <span className="about-logo-name">POLYRIVER</span>
           </a>
           <div className="about-nav-links">
             <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" className="about-nav-link">X (Twitter)</a>
