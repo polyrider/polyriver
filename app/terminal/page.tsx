@@ -200,7 +200,7 @@ function AIChatPanel() {
         {loading && (
           <div className="chat-msg ai">
             <span className="chat-msg-role">AI</span>
-            <span className="chat-msg-text chat-typing"><span />><span /><span /></span>
+            <span className="chat-msg-text chat-typing"><span /><span /><span /></span>
           </div>
         )}
         <div ref={bottomRef} />
