@@ -478,7 +478,10 @@ export default function AboutPage() {
 
         {/* Footer */}
         <footer className="about-footer">
-          <span className="about-footer-copy">© 2025 PolyRiver</span>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <span className="about-footer-copy">© 2025 PolyRiver</span>
+            <span className="about-footer-copy" style={{ color: '#F5C542', opacity: 0.8 }}>$POLYRIVER CA: Cr1QJ3Zn6YxFBXUqksyHKwCTfaUq53XrFBAxoWVppump</span>
+          </div>
           <div style={{ display:'flex', gap:20 }}>
             <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" className="about-footer-link">X (Twitter)</a>
             <a href="https://github.com/polyrider/polyriver" target="_blank" rel="noopener noreferrer" className="about-footer-link">GitHub</a>

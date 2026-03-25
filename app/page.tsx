@@ -713,8 +713,9 @@ export default function LandingPage() {
 
         {/* Footer */}
         <footer className="landing-footer">
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             <span className="footer-copy">© 2025 POLYRIVER</span>
+            <span className="footer-copy" style={{ color: 'var(--accent-yellow)', opacity: 0.8 }}>$POLYRIVER CA: Cr1QJ3Zn6YxFBXUqksyHKwCTfaUq53XrFBAxoWVppump</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:20 }}>
             <Link href="/about" className="footer-poly">About</Link>
