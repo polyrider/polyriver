@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -544,13 +545,13 @@ export default function LandingPage() {
         {/* Nav */}
         <nav className="landing-nav">
           <a href="/" className="landing-logo">
-            <div className="landing-logo-mark">PR</div>
+            <Image src="/logo.png" alt="PolyRiver" width={32} height={32} style={{ borderRadius: 4 }} />
             <span className="landing-logo-name">PolyRiver</span>
           </a>
-          <div className="landing-nav-right">
-            <Link href="/terminal" className="nav-launch-btn">
-              Open Terminal →
-            </Link>
+          <div className="landing-nav-right" style={{ display:'flex', alignItems:'center', gap:16 }}>
+            <Link href="/about" style={{ fontSize:12, color:'#5A6478', textDecoration:'none', transition:'color 120ms', fontWeight:500 }} onMouseEnter={e=>(e.currentTarget.style.color='#E8ECF0')} onMouseLeave={e=>(e.currentTarget.style.color='#5A6478')}>About</Link>
+            <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" style={{ fontSize:12, color:'#5A6478', textDecoration:'none', transition:'color 120ms' }} onMouseEnter={e=>(e.currentTarget.style.color='#E8ECF0')} onMouseLeave={e=>(e.currentTarget.style.color='#5A6478')}>X (Twitter)</a>
+            <Link href="/terminal" className="nav-launch-btn">Open Terminal →</Link>
           </div>
         </nav>
 
@@ -707,10 +708,15 @@ export default function LandingPage() {
 
         {/* Footer */}
         <footer className="landing-footer">
-          <span className="footer-copy">© 2025 PolyRiver</span>
-          <a href="https://docs.polymarket.com/builders/overview" target="_blank" rel="noopener noreferrer" className="footer-poly">
-            Built on Polymarket Builder Program
-          </a>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <Image src="/logo.png" alt="PolyRiver" width={20} height={20} style={{ borderRadius:3, opacity:0.6 }} />
+            <span className="footer-copy">© 2025 PolyRiver</span>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:20 }}>
+            <Link href="/about" className="footer-poly">About</Link>
+            <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" className="footer-poly">X (Twitter)</a>
+            <a href="https://docs.polymarket.com/builders/overview" target="_blank" rel="noopener noreferrer" className="footer-poly">Built on Polymarket</a>
+          </div>
         </footer>
       </div>
     </>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Image from 'next/image';
 import type { FlowEvent, MarketWithScore } from '@/lib/types';
 
 function relativeTime(ts: number): string {
@@ -135,12 +136,16 @@ function Topbar({ eventCount, marketCount }: { eventCount: number; marketCount: 
   return (
     <div className="terminal-topbar">
       <div className="topbar-left">
-        <a href="/" style={{ textDecoration: 'none' }}><span className="topbar-brand">PolyRiver</span></a>
+        <a href="/" style={{ textDecoration:'none', display:'flex', alignItems:'center', gap:7 }}>
+          <Image src="/logo.png" alt="PolyRiver" width={20} height={20} style={{ borderRadius:3 }} />
+          <span className="topbar-brand">PolyRiver</span>
+        </a>
         <div className="topbar-sep" />
         <div className="topbar-stat"><span className="topbar-stat-label">Events</span><span className="topbar-stat-value">{eventCount}</span></div>
         <div className="topbar-stat"><span className="topbar-stat-label">Markets</span><span className="topbar-stat-value">{marketCount}</span></div>
       </div>
       <div className="topbar-right">
+        <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" style={{ fontSize:10, color:'var(--text-muted)', textDecoration:'none', letterSpacing:'0.04em' }}>X</a>
         <span className="live-dot">LIVE</span>
         <span className="topbar-time">{time}</span>
       </div>
