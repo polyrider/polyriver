@@ -157,6 +157,12 @@ export default function LandingPage() {
         .nav-launch-btn:hover { background: #ffd44e; }
         .nav-launch-btn:active { transform: scale(0.98); }
 
+        .nav-text-link {
+          font-size: 12px; color: #5A6478; text-decoration: none;
+          font-weight: 500; transition: color 120ms ease;
+        }
+        .nav-text-link:hover { color: #E8ECF0; }
+
         /* ── Hero ── */
         .landing-hero {
           position: relative;
@@ -549,8 +555,8 @@ export default function LandingPage() {
             <span className="landing-logo-name">PolyRiver</span>
           </a>
           <div className="landing-nav-right" style={{ display:'flex', alignItems:'center', gap:16 }}>
-            <Link href="/about" style={{ fontSize:12, color:'#5A6478', textDecoration:'none', transition:'color 120ms', fontWeight:500 }} onMouseEnter={e=>(e.currentTarget.style.color='#E8ECF0')} onMouseLeave={e=>(e.currentTarget.style.color='#5A6478')}>About</Link>
-            <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" style={{ fontSize:12, color:'#5A6478', textDecoration:'none', transition:'color 120ms' }} onMouseEnter={e=>(e.currentTarget.style.color='#E8ECF0')} onMouseLeave={e=>(e.currentTarget.style.color='#5A6478')}>X (Twitter)</a>
+            <Link href="/about" className="nav-text-link">About</Link>
+            <a href="https://x.com/polyriver_app" target="_blank" rel="noopener noreferrer" className="nav-text-link">X (Twitter)</a>
             <Link href="/terminal" className="nav-launch-btn">Open Terminal →</Link>
           </div>
         </nav>
