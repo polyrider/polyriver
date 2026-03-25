@@ -1,6 +1,3 @@
-<p align="center">
-  <img src="https://polyriver.vercel.app/og-banner.png" alt="PolyRiver Banner" width="100%" />
-</p>
 
 <h1 align="center">🌊 POLYRIVER</h1>
 <h3 align="center">Real-Time Flow Intelligence Terminal for Polymarket</h3>
