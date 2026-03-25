@@ -17,7 +17,7 @@ export async function generateInsight(events: FlowEvent[]): Promise<InsightResul
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const summary = events
       .slice(0, 12)
