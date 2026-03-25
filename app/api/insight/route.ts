@@ -4,6 +4,7 @@ import { fetchActiveMarkets } from '@/lib/clob';
 import type { FlowEvent } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'edge';
 
 export async function POST() {
   try {
